@@ -1,0 +1,10 @@
+CLAUDE.md
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+poster/AI_Treasure_Hunt_Poster.pdf
+poster/AI_Treasure_Hunt_Poster.png

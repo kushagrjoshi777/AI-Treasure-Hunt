@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Treasure Hunt</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #1E1E2E;
+  --wall: #3A3A4A;
+  --open: #2A2A3A;
+  --panel-bg: #252535;
+  --bfs: #4A9EFF;
+  --dfs: #FFB830;
+  --astar: #50E3A4;
+  --greedy: #FF6B6B;
+  --start-color: #50E3A4;
+  --treasure-color: #FF4757;
+  --text-primary: #FFFFFF;
+  --text-secondary: #8888AA;
+  --text-dim: #5A5A78;
+  --border: #323248;
+  --card-bg: #252535;
+  --success: #50E3A4;
+  --failure: #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --panel-w: 300px;
+}
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Layout */
+#app { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
+
+#title-screen, #select-screen, #results-screen {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg);
+}
+
+#game-area {
+  display: flex; flex: 1; overflow: hidden;
+}
+
+#maze-wrap {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 8px;
+}
+
+canvas {
+  background: var(--bg);
+  border-radius: 4px;
+}
+
+/* Stats Panel */
+#stats-panel {
+  width: var(--panel-w);
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px 12px;
+  flex-shrink: 0;
+}
+.panel-title {
+  font-size: 16px; font-weight: 700;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.agent-card {
+  background: var(--card-bg);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+  padding: 10px 12px 10px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.agent-card::before {
+  content: '';
+  position: absolute; left: 0; top: 4px; bottom: 4px; width: 4px;
+  border-radius: 2px;
+}
+.agent-card[data-agent="bfs"]::before { background: var(--bfs); }
+.agent-card[data-agent="dfs"]::before { background: var(--dfs); }
+.agent-card[data-agent="astar"]::before { background: var(--astar); }
+.agent-card[data-agent="greedy"]::before { background: var(--greedy); }
+.agent-card.inactive { opacity: 0.4; }
+.agent-card.winner { border-color: var(--success); }
+.agent-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.agent-card[data-agent="bfs"] .agent-name { color: var(--bfs); }
+.agent-card[data-agent="dfs"] .agent-name { color: var(--dfs); }
+.agent-card[data-agent="astar"] .agent-name { color: var(--astar); }
+.agent-card[data-agent="greedy"] .agent-name { color: var(--greedy); }
+.stat-row {
+  display: flex; justify-content: space-between;
+  font-size: 12px; line-height: 1.6;
+}
+.stat-label { color: var(--text-secondary); }
+.stat-value { color: var(--text-primary); font-weight: 600; }
+
+/* Controls */
+.controls-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.speed-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.speed-label { font-size: 13px; color: var(--text-primary); }
+.btn {
+  padding: 6px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+.btn-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+
+/* Bottom bar */
+#bottom-bar {
+  height: 40px;
+  background: var(--panel-bg);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 16px;
+  font-size: 12px;
+  color: var(--text-dim);
+  gap: 20px;
+  flex-shrink: 0;
+}
+.key-hint { color: var(--text-secondary); }
+.key-hint kbd {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: var(--font);
+  font-size: 11px;
+  margin-right: 3px;
+}
+
+/* Title Screen */
+.title-main { font-size: 48px; font-weight: 700; margin-bottom: 12px; }
+.title-bar {
+  display: flex; height: 3px; width: 300px; margin-bottom: 20px; border-radius: 2px; overflow: hidden;
+}
+.title-bar div { flex: 1; }
+.title-sub { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
+.title-course { font-size: 13px; color: var(--text-dim); margin-bottom: 40px; }
+.title-cta { font-size: 20px; font-weight: 600; color: #8888FF; cursor: pointer; }
+.title-hints {
+  position: absolute; bottom: 24px; left: 24px;
+  font-size: 13px; color: var(--text-dim); line-height: 1.8;
+}
+
+/* Select Screen */
+.select-title { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.select-sub { font-size: 13px; color: var(--text-dim); margin-bottom: 24px; }
+.map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.map-card {
+  width: 280px; background: var(--card-bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; cursor: pointer;
+  transition: border-color 0.15s;
+}
+.map-card:hover, .map-card.selected { border-color: var(--text-secondary); }
+.map-card.selected { border-color: var(--bfs); border-width: 2px; }
+.map-card-name { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.map-card canvas { width: 100%; height: 100px; border-radius: 4px; }
+.toggle-row { display: flex; gap: 10px; margin-bottom: 20px; }
+.toggle-btn {
+  padding: 8px 20px; border-radius: 6px;
+  border: 2px solid var(--border);
+  background: var(--card-bg);
+  cursor: pointer; font-size: 14px; font-weight: 600;
+  font-family: var(--font);
+  transition: all 0.15s;
+}
+.toggle-btn.active { border-color: currentColor; }
+.select-start-btn {
+  padding: 10px 32px; background: var(--card-bg);
+  border: 2px solid var(--bfs); border-radius: 6px;
+  color: var(--bfs); font-size: 16px; font-weight: 600;
+  cursor: pointer; font-family: var(--font);
+}
+.select-start-btn:hover { background: rgba(74,158,255,0.1); }
+
+/* Results */
+.results-title { font-size: 28px; font-weight: 700; margin-bottom: 16px; }
+.results-winner {
+  font-size: 18px; font-weight: 600; margin-bottom: 20px;
+  color: var(--success);
+}
+.results-table {
+  border-collapse: collapse; margin-bottom: 24px;
+  font-size: 13px;
+}
+.results-table th {
+  padding: 8px 16px; text-align: left;
+  color: var(--text-secondary); font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.results-table td {
+  padding: 8px 16px; border-bottom: 1px solid var(--border);
+}
+.results-btns { display: flex; gap: 12px; margin-top: 20px; }
+.results-btn {
+  padding: 10px 24px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--card-bg);
+  color: var(--text-primary); font-size: 14px;
+  cursor: pointer; font-family: var(--font);
+}
+.results-btn:hover { border-color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- Title Screen -->
+<div id="title-screen">
+  <div class="title-main">AI Treasure Hunt</div>
+  <div class="title-bar">
+    <div style="background:var(--bfs)"></div>
+    <div style="background:var(--dfs)"></div>
+    <div style="background:var(--astar)"></div>
+    <div style="background:var(--greedy)"></div>
+  </div>
+  <div class="title-sub">Comparative Analysis of Search Algorithms</div>
+  <div class="title-course">21CSC206T -- Artificial Intelligence</div>
+  <div class="title-cta" onclick="showScreen('select')">Press Enter to Start</div>
+  <div class="title-hints">
+    [Enter] Play<br>[Q] Quit
+  </div>
+</div>
+
+<!-- Select Screen -->
+<div id="select-screen" style="display:none">
+  <div class="select-title">Select Map</div>
+  <div class="select-sub">Click to choose, then Start</div>
+  <div class="map-grid" id="map-grid"></div>
+  <div class="toggle-row" id="toggle-row"></div>
+  <button class="select-start-btn" onclick="startGame()">Start Race</button>
+</div>
+
+<!-- Game Area -->
+<div id="game-area" style="display:none">
+  <div id="maze-wrap"><canvas id="maze"></canvas></div>
+  <div id="stats-panel">
+    <div class="panel-title">AI Treasure Hunt</div>
+    <div id="agent-cards"></div>
+    <div class="controls-section">
+      <div class="speed-row">
+        <button class="btn btn-sm" onclick="changeSpeed(-1)">-</button>
+        <span class="speed-label" id="speed-label">Speed: 1x</span>
+        <button class="btn btn-sm" onclick="changeSpeed(1)">+</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="pause-btn" onclick="togglePause()">Pause</button>
+        <button class="btn" onclick="restartRace()">Restart</button>
+        <button class="btn" onclick="newMap()">New Map</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Results Screen -->
+<div id="results-screen" style="display:none">
+  <div class="results-title">Race Results</div>
+  <div class="results-winner" id="results-winner"></div>
+  <table class="results-table" id="results-table">
+    <thead><tr><th>Agent</th><th>Explored</th><th>Path</th><th>Time</th><th>Status</th><th>Optimal?</th></tr></thead>
+    <tbody id="results-body"></tbody>
+  </table>
+  <div class="results-btns">
+    <button class="results-btn" onclick="restartRace()">Race Again</button>
+    <button class="results-btn" onclick="showScreen('select')">New Map</button>
+    <button class="results-btn" onclick="showScreen('title')">Menu</button>
+  </div>
+</div>
+
+<!-- Bottom bar -->
+<div id="bottom-bar" style="display:none">
+  <span class="key-hint"><kbd>Space</kbd> Pause</span>
+  <span class="key-hint"><kbd>R</kbd> Restart</span>
+  <span class="key-hint"><kbd>N</kbd> New Map</span>
+  <span class="key-hint"><kbd>+/-</kbd> Speed</span>
+  <span class="key-hint"><kbd>1-4</kbd> Toggle</span>
+  <span class="key-hint"><kbd>Esc</kbd> Menu</span>
+</div>
+</div>
+
+<script>
+// ===== CONSTANTS =====
+const COLORS = {
+  bg: '#1E1E2E', wall: '#3A3A4A', open: '#2A2A3A',
+  bfs: '#4A9EFF', dfs: '#FFB830', astar: '#50E3A4', greedy: '#FF6B6B',
+  start: '#50E3A4', treasure: '#FF4757',
+  text: '#FFFFFF', textSec: '#8888AA', textDim: '#5A5A78',
+};
+const AGENTS_CFG = [
+  { name: 'BFS', key: 'bfs', color: COLORS.bfs, algo: 'bfs' },
+  { name: 'DFS', key: 'dfs', color: COLORS.dfs, algo: 'dfs' },
+  { name: 'A*',  key: 'astar', color: COLORS.astar, algo: 'astar' },
+  { name: 'Greedy', key: 'greedy', color: COLORS.greedy, algo: 'greedy' },
+];
+const SPEEDS = [1, 2, 4, 8, 16, 32];
+const ROWS = 20, COLS = 30;
+const EXPLORED_ALPHA = 0.35;
+
+// ===== STATE =====
+let grid = null, agents = [], speedIdx = 0, paused = false;
+let running = false, allDone = false, doneTimer = 0;
+let selectedMap = 0, activeAgents = [true, true, true, true];
+let canvas, ctx, cellW, cellH, animId;
+
+// ===== GRID =====
+class Grid {
+  constructor(rows, cols, walls, start, treasure) {
+    this.rows = rows; this.cols = cols;
+    this.walls = new Set(walls.map(p => p[0]+','+p[1]));
+    this.start = start; this.treasure = treasure;
+  }
+  isWall(r,c) { return this.walls.has(r+','+c); }
+  neighbors(r,c) {
+    const n = [];
+    for (const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+      const nr=r+dr, nc=c+dc;
+      if (nr>=0 && nr<this.rows && nc>=0 && nc<this.cols && !this.isWall(nr,nc))
+        n.push([nr,nc]);
+    }
+    return n;
+  }
+}
+
+// ===== MAZE GENERATION =====
+function generateMaze(rows, cols) {
+  const roomRows = Math.floor((rows-1)/2);
+  const roomCols = Math.floor((cols-1)/2);
+  const walls = [];
+  const wallSet = new Set();
+  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) wallSet.add(r+','+c);
+
+  const visited = new Set();
+  const stack = [[0,0]];
+  visited.add('0,0');
+  wallSet.delete((0*2)+','+(0*2));
+
+  while (stack.length) {
+    const [rr,rc] = stack[stack.length-1];
+    const unv = [];
+    for (const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+      const nr=rr+dr, nc=rc+dc;
+      if (nr>=0&&nr<roomRows&&nc>=0&&nc<roomCols&&!visited.has(nr+','+nc))
+        unv.push([nr,nc,dr,dc]);
+    }
+    if (unv.length) {
+      const [nr,nc,dr,dc] = unv[Math.floor(Math.random()*unv.length)];
+      visited.add(nr+','+nc);
+      wallSet.delete((rr*2+dr)+','+(rc*2+dc));
+      wallSet.delete((nr*2)+','+(nc*2));
+      stack.push([nr,nc]);
+    } else stack.pop();
+  }
+
+  for (const k of wallSet) { const p=k.split(','); walls.push([+p[0],+p[1]]); }
+  let sr = (roomRows-1)*2, sc = 0;
+  if (sc===0 && cols>2) { wallSet.delete(sr+','+(sc+1)); sc=1; }
+  const start = [sr, sc];
+  const treasure = [0, (roomCols-1)*2];
+  return { walls: walls.filter(w => !(w[0]===start[0]&&w[1]===start[1]) && !(w[0]===treasure[0]&&w[1]===treasure[1])), start, treasure };
+}
+
+function mapSimple() {
+  const w = new Set();
+  const add = (r,c) => w.add(r+','+c);
+  // Scattered wall clusters
+  for (let c=4;c<=8;c++) add(2,c);
+  for (let c=4;c<=7;c++) add(3,c);
+  for (let c=4;c<=6;c++) add(4,c);
+  for (let r=2;r<=5;r++) add(r,8);
+  for (let c=12;c<=17;c++) add(2,c);
+  for (let c=12;c<=16;c++) add(3,c);
+  for (let c=2;c<=7;c++) add(7,c);
+  for (let c=2;c<=5;c++) add(8,c);
+  for (let c=13;c<=17;c++) add(9,c);
+  for (let c=13;c<=17;c++) add(10,c);
+  for (let c=13;c<=16;c++) add(11,c);
+  for (let r=9;r<=11;r++) add(r,13);
+  for (let r=9;r<=11;r++) add(r,17);
+  for (let c=22;c<=25;c++) add(5,c);
+  for (let c=22;c<=25;c++) add(6,c);
+  for (let c=7;c<=12;c++) add(14,c);
+  for (let c=7;c<=11;c++) add(15,c);
+  for (let c=20;c<=24;c++) add(13,c);
+  for (let c=20;c<=23;c++) add(14,c);
+  for (let c=3;c<=5;c++) add(16,c);
+  for (let c=5;c<=8;c++) add(17,c);
+  for (let c=24;c<=26;c++) add(4,c);
+  for (let c=24;c<=25;c++) add(5,c);
+  for (let r=4;r<=7;r++) add(r,6);
+  for (let r=6;r<=10;r++) add(r,18);
+  for (let r=8;r<=11;r++) add(r,25);
+  for (let r=12;r<=16;r++) add(r,10);
+  for (let r=3;r<=5;r++) add(r,15);
+  for (let r=10;r<=13;r++) add(r,20);
+
+  const walls = [];
+  for (const k of w) { const p=k.split(','); walls.push([+p[0],+p[1]]); }
+  return { walls, start: [18,1], treasure: [1,28] };
+}
+
+function mapMaze() {
+  const walls = [];
+  const layers = [
+    [2,[14,15]], [4,[4,5,24,25]], [6,[10,11,20,21]], [8,[2,3,16,17]],
+    [10,[6,7,22,23]], [12,[12,13,26,27]], [14,[4,5,18,19]], [16,[10,11,24,25]], [18,[16,17]]
+  ];
+  for (const [row,open] of layers) {
+    const openSet = new Set(open);
+    for (let c=1;c<COLS-1;c++) if (!openSet.has(c)) walls.push([row,c]);
+  }
+  const vdivs = [[7,1,17,[3,4,9,10,15]],[14,1,17,[5,6,11,12,13]],[21,1,17,[7,8,13,14,15]]];
+  for (const [col,rs,re,open] of vdivs) {
+    const openSet = new Set(open);
+    for (let r=rs;r<=re;r++) if (!openSet.has(r)) walls.push([r,col]);
+  }
+  return { walls: walls.filter(w => !(w[0]===18&&w[1]===1) && !(w[0]===1&&w[1]===28)), start: [18,1], treasure: [1,28] };
+}
+
+function mapDeadends() {
+  const walls = [];
+  for (let c=1;c<COLS-1;c++) if (c!==15) walls.push([9,c]);
+  const fingerDown = (cc,d) => {
+    for (let r=10;r<10+d;r++) { walls.push([r,cc-1]); walls.push([r,cc+1]); }
+    walls.push([10+d,cc-1]); walls.push([10+d,cc]); walls.push([10+d,cc+1]);
+  };
+  fingerDown(5,5); fingerDown(11,4); fingerDown(20,6); fingerDown(26,3);
+  const fingerUp = (cc,d) => {
+    for (let r=8-d;r<=8;r++) { walls.push([r,cc-1]); walls.push([r,cc+1]); }
+    walls.push([8-d-1,cc-1]); walls.push([8-d-1,cc]); walls.push([8-d-1,cc+1]);
+  };
+  fingerUp(4,3); fingerUp(22,4);
+  const scatter = [[13,3],[13,4],[13,5],[14,3],[15,6],[15,7],[15,8],[12,23],[12,24],[13,23],
+    [16,24],[16,25],[16,26],[14,14],[14,15],[14,16],[15,14],[17,10],[17,11]];
+  for (const p of scatter) walls.push(p);
+  for (let c=16;c<24;c++) if (c!==20) walls.push([5,c]);
+  const upper = [[3,18],[3,19],[3,20],[4,18],[2,8],[2,9],[2,10],[3,8]];
+  for (const p of upper) walls.push(p);
+  return { walls: walls.filter(w => !(w[0]===18&&w[1]===1) && !(w[0]===1&&w[1]===28)), start: [18,1], treasure: [1,28] };
+}
+
+function getMap(idx) {
+  if (idx === 0) return mapSimple();
+  if (idx === 1) return mapMaze();
+  if (idx === 2) return mapDeadends();
+  return generateMaze(ROWS, COLS);
+}
+
+// ===== SEARCH ALGORITHMS =====
+function reconstruct(cameFrom, start, goal) {
+  const path = [];
+  let node = goal;
+  while (node) { path.push(node); node = cameFrom.get(node[0]+','+node[1]); }
+  path.reverse();
+  if (!path.length || path[0][0]!==start[0] || path[0][1]!==start[1]) return [];
+  return path;
+}
+
+function* bfsSearch(g, start, goal) {
+  if (start[0]===goal[0]&&start[1]===goal[1]) { yield {current:start,explored:new Set([start[0]+','+start[1]]),frontier:[],path:[start],done:true,found:true}; return; }
+  const queue = [start], cameFrom = new Map(), explored = new Set();
+  cameFrom.set(start[0]+','+start[1], null);
+  while (queue.length) {
+    const cur = queue.shift(); const ck = cur[0]+','+cur[1];
+    explored.add(ck);
+    yield {current:cur,explored:new Set(explored),frontier:[...queue],path:null,done:false,found:false};
+    if (cur[0]===goal[0]&&cur[1]===goal[1]) { const p=reconstruct(cameFrom,start,goal); yield {current:cur,explored:new Set(explored),frontier:[],path:p,done:true,found:true}; return; }
+    for (const nb of g.neighbors(cur[0],cur[1])) {
+      const nk=nb[0]+','+nb[1];
+      if (!cameFrom.has(nk)) { cameFrom.set(nk,cur); queue.push(nb); }
+    }
+  }
+  yield {current:null,explored,frontier:[],path:[],done:true,found:false};
+}
+
+function* dfsSearch(g, start, goal) {
+  if (start[0]===goal[0]&&start[1]===goal[1]) { yield {current:start,explored:new Set([start[0]+','+start[1]]),frontier:[],path:[start],done:true,found:true}; return; }
+  const stack = [start], cameFrom = new Map(), explored = new Set();
+  cameFrom.set(start[0]+','+start[1], null);
+  while (stack.length) {
+    const cur = stack.pop(); const ck=cur[0]+','+cur[1];
+    if (explored.has(ck)) continue;
+    explored.add(ck);
+    yield {current:cur,explored:new Set(explored),frontier:[...stack],path:null,done:false,found:false};
+    if (cur[0]===goal[0]&&cur[1]===goal[1]) { const p=reconstruct(cameFrom,start,goal); yield {current:cur,explored:new Set(explored),frontier:[],path:p,done:true,found:true}; return; }
+    const nbs = g.neighbors(cur[0],cur[1]).reverse();
+    for (const nb of nbs) {
+      const nk=nb[0]+','+nb[1];
+      if (!explored.has(nk) && !cameFrom.has(nk)) { cameFrom.set(nk,cur); stack.push(nb); }
+    }
+  }
+  yield {current:null,explored,frontier:[],path:[],done:true,found:false};
+}
+
+function manhattan(a,b) { return Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1]); }
+
+function* astarSearch(g, start, goal) {
+  if (start[0]===goal[0]&&start[1]===goal[1]) { yield {current:start,explored:new Set([start[0]+','+start[1]]),frontier:[],path:[start],done:true,found:true}; return; }
+  // Simple priority queue using sorted array
+  const heap = [{f:manhattan(start,goal),g_:0,node:start}];
+  const cameFrom = new Map(), gScore = new Map(), explored = new Set();
+  cameFrom.set(start[0]+','+start[1],null);
+  gScore.set(start[0]+','+start[1],0);
+  while (heap.length) {
+    heap.sort((a,b)=>a.f-b.f);
+    const {f,g_,node:cur} = heap.shift();
+    const ck=cur[0]+','+cur[1];
+    if (explored.has(ck)) continue;
+    explored.add(ck);
+    yield {current:cur,explored:new Set(explored),frontier:heap.map(h=>h.node),path:null,done:false,found:false};
+    if (cur[0]===goal[0]&&cur[1]===goal[1]) { const p=reconstruct(cameFrom,start,goal); yield {current:cur,explored:new Set(explored),frontier:[],path:p,done:true,found:true}; return; }
+    for (const nb of g.neighbors(cur[0],cur[1])) {
+      const nk=nb[0]+','+nb[1];
+      if (explored.has(nk)) continue;
+      const tg = g_+1;
+      if (tg < (gScore.get(nk)??Infinity)) {
+        gScore.set(nk,tg); cameFrom.set(nk,cur);
+        heap.push({f:tg+manhattan(nb,goal),g_:tg,node:nb});
+      }
+    }
+  }
+  yield {current:null,explored,frontier:[],path:[],done:true,found:false};
+}
+
+function* greedySearch(g, start, goal) {
+  if (start[0]===goal[0]&&start[1]===goal[1]) { yield {current:start,explored:new Set([start[0]+','+start[1]]),frontier:[],path:[start],done:true,found:true}; return; }
+  const heap = [{h:manhattan(start,goal),node:start}];
+  const cameFrom = new Map(), explored = new Set();
+  cameFrom.set(start[0]+','+start[1],null);
+  while (heap.length) {
+    heap.sort((a,b)=>a.h-b.h);
+    const {node:cur} = heap.shift();
+    const ck=cur[0]+','+cur[1];
+    if (explored.has(ck)) continue;
+    explored.add(ck);
+    yield {current:cur,explored:new Set(explored),frontier:heap.map(h=>h.node),path:null,done:false,found:false};
+    if (cur[0]===goal[0]&&cur[1]===goal[1]) { const p=reconstruct(cameFrom,start,goal); yield {current:cur,explored:new Set(explored),frontier:[],path:p,done:true,found:true}; return; }
+    for (const nb of g.neighbors(cur[0],cur[1])) {
+      const nk=nb[0]+','+nb[1];
+      if (!explored.has(nk) && !cameFrom.has(nk)) { cameFrom.set(nk,cur); heap.push({h:manhattan(nb,goal),node:nb}); }
+    }
+  }
+  yield {current:null,explored,frontier:[],path:[],done:true,found:false};
+}
+
+const ALGO_MAP = { bfs: bfsSearch, dfs: dfsSearch, astar: astarSearch, greedy: greedySearch };
+
+// ===== AGENT =====
+class Agent {
+  constructor(cfg) {
+    this.name = cfg.name; this.key = cfg.key;
+    this.color = cfg.color; this.algo = cfg.algo;
+    this.active = true; this.reset();
+  }
+  reset() {
+    this.explored = new Set(); this.frontier = [];
+    this.path = []; this.current = null;
+    this.status = 'idle'; this.nodesExplored = 0;
+    this.pathLength = 0; this.timeTaken = -1;
+    this.timeStart = 0; this.gen = null;
+    this.firstFound = false;
+  }
+  startSearch(g) {
+    this.reset();
+    this.gen = ALGO_MAP[this.algo](g, g.start, g.treasure);
+    this.status = 'searching';
+    this.timeStart = performance.now();
+  }
+  step() {
+    if (!this.gen || this.status !== 'searching') return true;
+    const r = this.gen.next();
+    if (r.done) { this.status = 'failed'; this.timeTaken = performance.now()-this.timeStart; return true; }
+    const s = r.value;
+    this.explored = s.explored; this.frontier = s.frontier;
+    this.current = s.current; this.nodesExplored = s.explored.size;
+    if (s.done) {
+      this.timeTaken = performance.now() - this.timeStart;
+      if (s.found) { this.path = s.path; this.pathLength = s.path.length-1; this.status = 'found'; }
+      else this.status = 'failed';
+      return true;
+    }
+    return false;
+  }
+}
+
+// ===== RENDERING =====
+function resizeCanvas() {
+  const wrap = document.getElementById('maze-wrap');
+  const maxW = wrap.clientWidth - 16, maxH = wrap.clientHeight - 16;
+  cellW = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
+  cellH = cellW;
+  canvas.width = cellW * COLS;
+  canvas.height = cellH * ROWS;
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return [r,g,b];
+}
+
+function drawMaze() {
+  if (!grid || !ctx) return;
+  const gap = 1;
+
+  // Background
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Open cells
+  ctx.fillStyle = COLORS.open;
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (!grid.isWall(r,c)) {
+      ctx.fillRect(c*cellW+gap, r*cellH+gap, cellW-gap*2, cellH-gap*2);
+    }
+  }
+
+  // Explored cells (35% opacity solid fill)
+  for (const agent of agents) {
+    if (!agent.active || !agent.explored.size) continue;
+    const [cr,cg,cb] = hexToRgb(agent.color);
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},${EXPLORED_ALPHA})`;
+    for (const k of agent.explored) {
+      const [r,c] = k.split(',').map(Number);
+      ctx.fillRect(c*cellW+gap, r*cellH+gap, cellW-gap*2, cellH-gap*2);
+    }
+  }
+
+  // Final paths (full opacity)
+  for (const agent of agents) {
+    if (!agent.active || agent.status !== 'found' || !agent.path.length) continue;
+    ctx.fillStyle = agent.color;
+    for (const [r,c] of agent.path) {
+      ctx.fillRect(c*cellW+gap, r*cellH+gap, cellW-gap*2, cellH-gap*2);
+    }
+  }
+
+  // Walls
+  ctx.fillStyle = COLORS.wall;
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (grid.isWall(r,c)) {
+      ctx.fillRect(c*cellW+gap, r*cellH+gap, cellW-gap*2, cellH-gap*2);
+    }
+  }
+
+  // Start marker
+  const [sr,sc] = grid.start;
+  const ss = Math.floor(Math.min(cellW,cellH)/3);
+  ctx.fillStyle = COLORS.start;
+  ctx.fillRect(sc*cellW+cellW/2-ss, sr*cellH+cellH/2-ss, ss*2, ss*2);
+
+  // Treasure marker (diamond)
+  const [tr,tc] = grid.treasure;
+  const ts = Math.floor(Math.min(cellW,cellH)/3);
+  const tcx = tc*cellW+cellW/2, tcy = tr*cellH+cellH/2;
+  ctx.fillStyle = COLORS.treasure;
+  ctx.beginPath();
+  ctx.moveTo(tcx, tcy-ts); ctx.lineTo(tcx+ts, tcy);
+  ctx.lineTo(tcx, tcy+ts); ctx.lineTo(tcx-ts, tcy);
+  ctx.closePath(); ctx.fill();
+
+  // Current node highlights
+  for (const agent of agents) {
+    if (!agent.active || agent.status !== 'searching' || !agent.current) continue;
+    const [cr,cg,cb] = hexToRgb(agent.color);
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},0.7)`;
+    const [r,c] = agent.current;
+    ctx.fillRect(c*cellW+gap, r*cellH+gap, cellW-gap*2, cellH-gap*2);
+  }
+}
+
+function updateCards() {
+  const container = document.getElementById('agent-cards');
+  container.innerHTML = '';
+  for (const agent of agents) {
+    const card = document.createElement('div');
+    card.className = 'agent-card' + (agent.active?'':' inactive') + (agent.firstFound?' winner':'');
+    card.setAttribute('data-agent', agent.key);
+    const timeStr = agent.timeTaken >= 0 ? (agent.timeTaken/1000).toFixed(3)+'s' :
+                    agent.status==='searching' ? ((performance.now()-agent.timeStart)/1000).toFixed(2)+'s' : '--';
+    const statusStr = agent.status==='idle'?'Idle':agent.status==='searching'?'Searching...':
+                      agent.status==='found'?`Found! (${agent.pathLength} steps)`:'No Path!';
+    card.innerHTML = `
+      <div class="agent-name">${agent.name}${agent.firstFound?' - WINNER':''}</div>
+      <div class="stat-row"><span class="stat-label">Explored</span><span class="stat-value">${agent.nodesExplored}</span></div>
+      <div class="stat-row"><span class="stat-label">Path</span><span class="stat-value">${agent.status==='found'?agent.pathLength:'--'}</span></div>
+      <div class="stat-row"><span class="stat-label">Time</span><span class="stat-value">${timeStr}</span></div>
+      <div class="stat-row"><span class="stat-label">Status</span><span class="stat-value" style="color:${agent.status==='found'?'var(--success)':agent.status==='failed'?'var(--failure)':'inherit'}">${statusStr}</span></div>
+    `;
+    container.appendChild(card);
+  }
+}
+
+// ===== GAME LOOP =====
+function gameLoop() {
+  if (!running) return;
+
+  if (!paused && !allDone) {
+    const steps = SPEEDS[speedIdx];
+    for (let s=0; s<steps; s++) {
+      for (const agent of agents) {
+        if (agent.active && agent.status === 'searching') agent.step();
+      }
+    }
+    // Check if all done
+    const active = agents.filter(a => a.active);
+    if (active.length && active.every(a => a.status==='found'||a.status==='failed')) {
+      allDone = true;
+      // Record winners
+      const found = active.filter(a => a.status==='found');
+      if (found.length) {
+        const fastest = found.reduce((a,b) => a.timeTaken < b.timeTaken ? a : b);
+        fastest.firstFound = true;
+      }
+      doneTimer = 0;
+    }
+  }
+
+  if (allDone) {
+    doneTimer++;
+    if (doneTimer > 180) { showScreen('results'); return; }
+  }
+
+  drawMaze();
+  updateCards();
+  animId = requestAnimationFrame(gameLoop);
+}
+
+// ===== SCREENS =====
+function showScreen(name) {
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  running = false;
+
+  document.getElementById('title-screen').style.display = name==='title'?'flex':'none';
+  document.getElementById('select-screen').style.display = name==='select'?'flex':'none';
+  document.getElementById('game-area').style.display = name==='game'?'flex':'none';
+  document.getElementById('results-screen').style.display = name==='results'?'flex':'none';
+  document.getElementById('bottom-bar').style.display = name==='game'?'flex':'none';
+
+  if (name === 'select') buildSelectScreen();
+  if (name === 'game') { running = true; resizeCanvas(); gameLoop(); }
+  if (name === 'results') buildResultsScreen();
+}
+
+function buildSelectScreen() {
+  const gridEl = document.getElementById('map-grid');
+  gridEl.innerHTML = '';
+  const names = ['Simple Open', 'Maze Corridors', 'Dead End Traps', 'Random Maze'];
+  for (let i=0;i<4;i++) {
+    const card = document.createElement('div');
+    card.className = 'map-card' + (i===selectedMap?' selected':'');
+    const mapData = getMap(i);
+    card.innerHTML = `<div class="map-card-name">${names[i]}</div><canvas class="map-thumb"></canvas>`;
+    card.onclick = () => { selectedMap = i; buildSelectScreen(); };
+    gridEl.appendChild(card);
+    // Draw thumbnail
+    const tc = card.querySelector('.map-thumb');
+    tc.width = 250; tc.height = 90;
+    const tctx = tc.getContext('2d');
+    const tw = 250/COLS, th = 90/ROWS;
+    tctx.fillStyle = COLORS.bg;
+    tctx.fillRect(0,0,250,90);
+    tctx.fillStyle = COLORS.wall;
+    for (const [r,c] of mapData.walls) tctx.fillRect(c*tw,r*th,tw,th);
+    tctx.fillStyle = COLORS.start;
+    tctx.fillRect(mapData.start[1]*tw,mapData.start[0]*th,Math.max(tw,3),Math.max(th,3));
+    tctx.fillStyle = COLORS.treasure;
+    tctx.fillRect(mapData.treasure[1]*tw,mapData.treasure[0]*th,Math.max(tw,3),Math.max(th,3));
+  }
+
+  // Agent toggles
+  const toggleRow = document.getElementById('toggle-row');
+  toggleRow.innerHTML = '';
+  for (let i=0;i<4;i++) {
+    const btn = document.createElement('button');
+    btn.className = 'toggle-btn' + (activeAgents[i]?' active':'');
+    btn.style.color = AGENTS_CFG[i].color;
+    btn.style.borderColor = activeAgents[i] ? AGENTS_CFG[i].color : 'var(--border)';
+    btn.textContent = AGENTS_CFG[i].name;
+    btn.onclick = () => { activeAgents[i] = !activeAgents[i]; buildSelectScreen(); };
+    toggleRow.appendChild(btn);
+  }
+}
+
+function startGame() {
+  const mapData = getMap(selectedMap);
+  grid = new Grid(ROWS, COLS, mapData.walls, mapData.start, mapData.treasure);
+  agents = AGENTS_CFG.map((cfg,i) => {
+    const a = new Agent(cfg);
+    a.active = activeAgents[i];
+    return a;
+  });
+  for (const a of agents) if (a.active) a.startSearch(grid);
+  allDone = false; doneTimer = 0; paused = false;
+  canvas = document.getElementById('maze');
+  ctx = canvas.getContext('2d');
+  document.getElementById('speed-label').textContent = `Speed: ${SPEEDS[speedIdx]}x`;
+  document.getElementById('pause-btn').textContent = 'Pause';
+  showScreen('game');
+}
+
+function restartRace() {
+  startGame();
+}
+
+function newMap() {
+  selectedMap = 3;
+  startGame();
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pause-btn').textContent = paused ? 'Resume' : 'Pause';
+}
+
+function changeSpeed(delta) {
+  speedIdx = Math.max(0, Math.min(SPEEDS.length-1, speedIdx + delta));
+  document.getElementById('speed-label').textContent = `Speed: ${SPEEDS[speedIdx]}x`;
+}
+
+function buildResultsScreen() {
+  const found = agents.filter(a => a.active && a.status==='found');
+  const winner = found.length ? found.reduce((a,b) => a.timeTaken < b.timeTaken ? a : b) : null;
+  const shortest = found.length ? found.reduce((a,b) => a.pathLength < b.pathLength ? a : b) : null;
+
+  let winText = '';
+  if (winner) winText = `First to finish: ${winner.name}`;
+  if (shortest && shortest !== winner) winText += ` | Shortest path: ${shortest.name}`;
+  else if (winner) winText += ' (optimal AND fastest!)';
+  document.getElementById('results-winner').textContent = winText;
+
+  const ALGO_PROPS = {
+    bfs: {opt:'Yes',comp:'Yes'}, dfs: {opt:'No',comp:'Yes'},
+    astar: {opt:'Yes',comp:'Yes'}, greedy: {opt:'No',comp:'No'}
+  };
+
+  const tbody = document.getElementById('results-body');
+  tbody.innerHTML = '';
+  for (const a of agents) {
+    const tr = document.createElement('tr');
+    const props = ALGO_PROPS[a.key];
+    tr.innerHTML = `
+      <td style="color:${a.color};font-weight:600">${a.name}${a.firstFound?' *':''}</td>
+      <td>${a.active?a.nodesExplored:'--'}</td>
+      <td>${a.active&&a.status==='found'?a.pathLength:'--'}</td>
+      <td>${a.active&&a.timeTaken>=0?(a.timeTaken/1000).toFixed(3)+'s':'--'}</td>
+      <td style="color:${a.status==='found'?'var(--success)':a.status==='failed'?'var(--failure)':'inherit'}">${a.active?a.status:'Inactive'}</td>
+      <td>${props.opt}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', e => {
+  const titleVisible = document.getElementById('title-screen').style.display !== 'none';
+  const selectVisible = document.getElementById('select-screen').style.display !== 'none';
+  const gameVisible = document.getElementById('game-area').style.display !== 'none';
+  const resultsVisible = document.getElementById('results-screen').style.display !== 'none';
+
+  if (titleVisible) {
+    if (e.key==='Enter'||e.key===' ') showScreen('select');
+    if (e.key==='q'||e.key==='Escape') window.close();
+    return;
+  }
+  if (selectVisible) {
+    if (e.key==='Enter') startGame();
+    if (e.key==='Escape') showScreen('title');
+    if (e.key>='1'&&e.key<='4') { selectedMap=+e.key-1; buildSelectScreen(); }
+    return;
+  }
+  if (gameVisible) {
+    if (e.key===' ') togglePause();
+    if (e.key==='r') restartRace();
+    if (e.key==='n') newMap();
+    if (e.key==='='||e.key==='+') changeSpeed(1);
+    if (e.key==='-') changeSpeed(-1);
+    if (e.key>='1'&&e.key<='4') {
+      const i=+e.key-1;
+      agents[i].active = !agents[i].active;
+      activeAgents[i] = agents[i].active;
+    }
+    if (e.key==='Escape') showScreen('title');
+    if (e.key==='Tab'&&allDone) { e.preventDefault(); showScreen('results'); }
+    return;
+  }
+  if (resultsVisible) {
+    if (e.key==='r'||e.key==='Enter') restartRace();
+    if (e.key==='s') showScreen('select');
+    if (e.key==='Escape') showScreen('title');
+    if (e.key==='n') newMap();
+    return;
+  }
+});
+
+// Handle resize
+window.addEventListener('resize', () => {
+  if (running) resizeCanvas();
+});
+
+// Init
+showScreen('title');
+</script>
+</body>
+</html>
