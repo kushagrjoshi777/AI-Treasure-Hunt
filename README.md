@@ -1,5 +1,8 @@
 # AI Treasure Hunt
 
+> [!IMPORTANT]
+> This project was developed for an **AI Class presentation** and was selected for the **Project Expo**, showcasing multi-agent pathfinding algorithms in a real-time environment.
+
 **21CSC206T — Artificial Intelligence | Unit 1, 2 & 3 Combined**
 
 A multi-agent grid-world game where four AI agents race to find hidden treasure using different search algorithms. Watch BFS, DFS, A*, and Greedy Best-First Search compete side-by-side in real time with full step-by-step visualisation.
