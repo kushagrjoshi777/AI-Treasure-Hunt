@@ -4,32 +4,46 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Treasure Hunt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Cinzel:wght@700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --bg: #1E1E2E;
-  --wall: #3A3A4A;
-  --open: #2A2A3A;
-  --panel-bg: #252535;
-  --bfs: #4A9EFF;
-  --dfs: #FFB830;
-  --astar: #50E3A4;
-  --greedy: #FF6B6B;
-  --start-color: #50E3A4;
-  --treasure-color: #FF4757;
-  --text-primary: #FFFFFF;
-  --text-secondary: #8888AA;
-  --text-dim: #5A5A78;
-  --border: #323248;
-  --card-bg: #252535;
-  --success: #50E3A4;
-  --failure: #FF6B6B;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-  --panel-w: 300px;
+  --wood-light: #D2B48C;
+  --wood-medium: #A0522D;
+  --wood-dark: #5D2E0A;
+  --parchment: #FDF5E6;
+  --iron: #2F2F2F;
+  --gold: #D4AF37;
+  --leaf: #2D5A27;
+  
+  --bg: #1a1a1a;
+  --panel-bg: rgba(30, 30, 30, 0.85); /* Glassmorphism base */
+  
+  --bfs: #2196F3;
+  --dfs: #F44336;
+  --astar: #00C853;
+  --greedy: #FFD600;
+  --player: #E040FB;
+  
+  --text-primary: #f0f0f0;
+  --text-secondary: #b0b0b0;
+  --text-dim: #666666;
+  --border: rgba(255,255,255,0.1);
+  --card-bg: rgba(255,255,255,0.05);
+  --success: #00E676;
+  --failure: #FF5252;
+  --font: 'Outfit', sans-serif;
+  --panel-w: 340px;
 }
 html, body {
   width: 100%; height: 100%;
   background: var(--bg);
+  background-image: 
+    radial-gradient(circle at 20% 20%, rgba(33, 150, 243, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(224, 64, 251, 0.05) 0%, transparent 40%),
+    linear-gradient(to bottom, #121212, #1a1a1a);
   color: var(--text-primary);
   font-family: var(--font);
   overflow: hidden;
@@ -56,50 +70,68 @@ html, body {
 }
 
 canvas {
-  background: var(--bg);
-  border-radius: 4px;
+  background: var(--open);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 /* Stats Panel */
 #stats-panel {
   width: var(--panel-w);
   background: var(--panel-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-left: 1px solid var(--border);
+  box-shadow: -10px 0 30px rgba(0,0,0,0.5);
   overflow-y: auto;
-  padding: 16px 12px;
+  padding: 24px 20px;
   flex-shrink: 0;
+  z-index: 5;
 }
 .panel-title {
-  font-size: 16px; font-weight: 700;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
+  font-size: 24px; font-weight: 700;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-align: center;
 }
 .agent-card {
   background: var(--card-bg);
-  border-radius: 6px;
   border: 1px solid var(--border);
-  margin-bottom: 6px;
-  padding: 10px 12px 10px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
   position: relative;
-  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s;
+}
+.agent-card:hover {
+  transform: scale(1.02);
+  border-color: rgba(255,255,255,0.2);
 }
 .agent-card::before {
   content: '';
-  position: absolute; left: 0; top: 4px; bottom: 4px; width: 4px;
-  border-radius: 2px;
+  position: absolute; left: 0; top: 0; bottom: 0; width: 8px;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 .agent-card[data-agent="bfs"]::before { background: var(--bfs); }
 .agent-card[data-agent="dfs"]::before { background: var(--dfs); }
 .agent-card[data-agent="astar"]::before { background: var(--astar); }
 .agent-card[data-agent="greedy"]::before { background: var(--greedy); }
-.agent-card.inactive { opacity: 0.4; }
-.agent-card.winner { border-color: var(--success); }
-.agent-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
-.agent-card[data-agent="bfs"] .agent-name { color: var(--bfs); }
-.agent-card[data-agent="dfs"] .agent-name { color: var(--dfs); }
-.agent-card[data-agent="astar"] .agent-name { color: var(--astar); }
-.agent-card[data-agent="greedy"] .agent-name { color: var(--greedy); }
+.agent-card[data-agent="player"]::before { background: var(--player); }
+.agent-card.inactive { opacity: 0.5; filter: grayscale(0.5); }
+.agent-card.winner { border-color: var(--gold); box-shadow: 0 0 15px var(--gold); }
+.agent-name { 
+  font-size: 16px; font-weight: 700; margin-bottom: 8px; 
+  font-family: 'Garamond', serif;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  padding-bottom: 4px;
+  color: var(--wood-dark);
+}
 .stat-row {
   display: flex; justify-content: space-between;
   font-size: 12px; line-height: 1.6;
@@ -118,52 +150,82 @@ canvas {
   margin-bottom: 8px;
 }
 .speed-label { font-size: 13px; color: var(--text-primary); }
-.btn {
-  padding: 6px 14px;
+.map-card {
+  width: 280px; background: var(--parchment);
+  background-image: url('https://www.transparenttextures.com/patterns/papyros.png');
+  border: 3px solid var(--wood-medium); border-radius: 8px;
+  padding: 12px; cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 4px 4px 8px rgba(0,0,0,0.4);
+}
+.map-card:hover { transform: translateY(-4px); box-shadow: 6px 6px 12px rgba(0,0,0,0.5); }
+.map-card.selected { border-color: var(--gold); transform: scale(1.02); }
+.map-card-name { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--wood-dark); font-family: 'Garamond', serif; }
+.map-card canvas { width: 100%; height: 100px; border-radius: 4px; border: 1px solid var(--wood-medium); }
+
+.toggle-btn {
+  padding: 8px 20px; border-radius: 4px;
+  border: 2px solid var(--wood-dark);
+  background: var(--wood-medium);
+  color: white !important;
+  cursor: pointer; font-size: 14px; font-weight: 600;
+  font-family: var(--font);
+  transition: all 0.15s;
+  box-shadow: 0 4px 0 var(--wood-dark);
+}
+.toggle-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--wood-dark); }
+.toggle-btn.active { border-color: var(--gold); }
+
+.select-start-btn {
+  padding: 12px 48px; background: var(--wood-dark);
+  border: 2px solid var(--gold); border-radius: 4px;
+  color: var(--gold); font-size: 18px; font-weight: 700;
+  cursor: pointer; font-family: var(--font);
+  text-transform: uppercase; letter-spacing: 1px;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.5);
+}
+.select-start-btn:hover { background: #4E342E; color: white; }
+
+.agent-card {
   background: var(--card-bg);
+  border-radius: 6px;
   border: 1px solid var(--border);
+  margin-bottom: 8px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 1px 1px 1px rgba(255,255,255,0.5), 0 2px 4px rgba(0,0,0,0.1);
+}
+.btn {
+  padding: 8px 16px;
+  background: var(--wood-medium);
+  border: 2px solid var(--wood-dark);
   border-radius: 4px;
-  color: var(--text-secondary);
+  color: white;
   font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
   font-family: var(--font);
+  box-shadow: 0 3px 0 var(--wood-dark);
 }
-.btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
-.btn-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.btn-sm { padding: 4px 10px; font-size: 11px; }
-
-/* Bottom bar */
-#bottom-bar {
-  height: 40px;
-  background: var(--panel-bg);
-  border-top: 1px solid var(--border);
-  display: flex; align-items: center;
-  padding: 0 16px;
-  font-size: 12px;
-  color: var(--text-dim);
-  gap: 20px;
-  flex-shrink: 0;
-}
-.key-hint { color: var(--text-secondary); }
-.key-hint kbd {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 5px;
-  font-family: var(--font);
-  font-size: 11px;
-  margin-right: 3px;
-}
+.btn:hover { background: #B05B3B; }
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood-dark); }
 
 /* Title Screen */
-.title-main { font-size: 48px; font-weight: 700; margin-bottom: 12px; }
+.title-main { font-size: 64px; font-weight: 700; margin-bottom: 24px; font-family: 'Cinzel', serif; color: var(--gold); text-shadow: 0 0 30px rgba(212, 175, 55, 0.3); }
 .title-bar {
-  display: flex; height: 3px; width: 300px; margin-bottom: 20px; border-radius: 2px; overflow: hidden;
+  display: flex; height: 4px; width: 400px; margin-bottom: 32px; border-radius: 2px; overflow: hidden;
+  background: rgba(255,255,255,0.1);
 }
-.title-bar div { flex: 1; }
-.title-sub { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
-.title-course { font-size: 13px; color: var(--text-dim); margin-bottom: 40px; }
-.title-cta { font-size: 20px; font-weight: 600; color: #8888FF; cursor: pointer; }
+.title-bar div { flex: 1; opacity: 0.8; }
+.title-sub { font-size: 18px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; }
+.title-course { font-size: 14px; color: var(--text-dim); margin-bottom: 60px; font-style: italic; }
+.title-cta {
+  font-size: 20px; font-weight: 700; color: #111; cursor: pointer;
+  background: var(--gold); padding: 16px 48px; border-radius: 100px;
+  text-transform: uppercase; letter-spacing: 2px;
+  transition: all 0.3s; box-shadow: 0 10px 40px rgba(212, 175, 55, 0.2);
+}
+.title-cta:hover { transform: translateY(-3px); box-shadow: 0 15px 50px rgba(212, 175, 55, 0.4); filter: brightness(1.1); }
 .title-hints {
   position: absolute; bottom: 24px; left: 24px;
   font-size: 13px; color: var(--text-dim); line-height: 1.8;
@@ -211,22 +273,29 @@ canvas {
   border-collapse: collapse; margin-bottom: 24px;
   font-size: 13px;
 }
+.results-screen {
+  background: var(--parchment) !important;
+  background-image: url('https://www.transparenttextures.com/patterns/papyros.png') !important;
+}
 .results-table th {
-  padding: 8px 16px; text-align: left;
-  color: var(--text-secondary); font-weight: 600;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 16px; text-align: left;
+  color: var(--wood-dark); font-weight: 700;
+  border-bottom: 2px solid var(--wood-medium);
+  font-family: 'Garamond', serif;
 }
 .results-table td {
-  padding: 8px 16px; border-bottom: 1px solid var(--border);
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  color: var(--wood-dark) !important;
 }
-.results-btns { display: flex; gap: 12px; margin-top: 20px; }
 .results-btn {
-  padding: 10px 24px; border-radius: 6px;
-  border: 1px solid var(--border); background: var(--card-bg);
-  color: var(--text-primary); font-size: 14px;
+  padding: 12px 24px; border-radius: 4px;
+  border: 2px solid var(--wood-medium); background: var(--wood-light);
+  color: var(--wood-dark); font-size: 14px; font-weight: 700;
   cursor: pointer; font-family: var(--font);
+  box-shadow: 0 4px 0 var(--wood-medium);
 }
-.results-btn:hover { border-color: var(--text-secondary); }
+.results-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--wood-medium); }
+.results-btn:hover { background: #E2C49C; }
 </style>
 </head>
 <body>
@@ -234,18 +303,19 @@ canvas {
 
 <!-- Title Screen -->
 <div id="title-screen">
-  <div class="title-main">AI Treasure Hunt</div>
+  <div class="title-sub">The Deep Core</div>
+  <div class="title-main">CYBER MAZE</div>
   <div class="title-bar">
     <div style="background:var(--bfs)"></div>
     <div style="background:var(--dfs)"></div>
     <div style="background:var(--astar)"></div>
     <div style="background:var(--greedy)"></div>
+    <div style="background:var(--player)"></div>
   </div>
-  <div class="title-sub">Comparative Analysis of Search Algorithms</div>
-  <div class="title-course">21CSC206T -- Artificial Intelligence</div>
-  <div class="title-cta" onclick="showScreen('select')">Press Enter to Start</div>
-  <div class="title-hints">
-    [Enter] Play<br>[Q] Quit
+  <div class="title-course">Multi-Agent Pathfinding Simulator</div>
+  <div class="title-cta" onclick="showScreen('select')">Initialize System</div>
+  <div class="title-hints" style="color: var(--text-dim)">
+    [Enter] Play<br>[Click] Explore tiles (In-game)
   </div>
 </div>
 
@@ -271,7 +341,7 @@ canvas {
         <button class="btn btn-sm" onclick="changeSpeed(1)">+</button>
       </div>
       <div class="btn-row">
-        <button class="btn" id="pause-btn" onclick="togglePause()">Pause</button>
+        <button class="btn" id="pause-btn" style="background:var(--success); color:white" onclick="togglePause()">Launch Race!</button>
         <button class="btn" onclick="restartRace()">Restart</button>
         <button class="btn" onclick="newMap()">New Map</button>
       </div>
@@ -306,28 +376,29 @@ canvas {
 </div>
 
 <script>
-// ===== CONSTANTS =====
 const COLORS = {
-  bg: '#1E1E2E', wall: '#3A3A4A', open: '#2A2A3A',
-  bfs: '#4A9EFF', dfs: '#FFB830', astar: '#50E3A4', greedy: '#FF6B6B',
-  start: '#50E3A4', treasure: '#FF4757',
-  text: '#FFFFFF', textSec: '#8888AA', textDim: '#5A5A78',
+  bg: '#121212', wall: '#2c2c2c', open: '#1a1a1a',
+  bfs: '#2196F3', dfs: '#F44336', astar: '#00C853', greedy: '#FFD600', player: '#E040FB',
+  start: '#FFD700', treasure: '#FFD700',
+  text: '#f0f0f0', textSec: '#b0b0b0', textDim: '#666666',
 };
 const AGENTS_CFG = [
   { name: 'BFS', key: 'bfs', color: COLORS.bfs, algo: 'bfs' },
   { name: 'DFS', key: 'dfs', color: COLORS.dfs, algo: 'dfs' },
   { name: 'A*',  key: 'astar', color: COLORS.astar, algo: 'astar' },
   { name: 'Greedy', key: 'greedy', color: COLORS.greedy, algo: 'greedy' },
+  { name: 'You (Race!)', key: 'player', color: COLORS.player, algo: 'manual' },
 ];
 const SPEEDS = [1, 2, 4, 8, 16, 32];
 const ROWS = 20, COLS = 30;
 const EXPLORED_ALPHA = 0.35;
 
 // ===== STATE =====
-let grid = null, agents = [], speedIdx = 0, paused = false;
+let grid = null, agents = [], speedIdx = 0, paused = true; // Start paused for the "Controlled Begin"
 let running = false, allDone = false, doneTimer = 0;
-let selectedMap = 0, activeAgents = [true, true, true, true];
+let selectedMap = 0, activeAgents = [true, true, true, true, true];
 let canvas, ctx, cellW, cellH, animId;
+let particles = [];
 
 // ===== GRID =====
 class Grid {
@@ -569,7 +640,25 @@ function* greedySearch(g, start, goal) {
   yield {current:null,explored,frontier:[],path:[],done:true,found:false};
 }
 
-const ALGO_MAP = { bfs: bfsSearch, dfs: dfsSearch, astar: astarSearch, greedy: greedySearch };
+function* manualSearch(g, start, goal) {
+  let explored = new Set([start[0]+','+start[1]]);
+  let current = start;
+  while(true) {
+    // Wait for external click event to provide the next node
+    let nextNode = yield {current, explored: new Set(explored), frontier: [], path: null, done: false, found: false};
+    if (nextNode) {
+      explored.add(nextNode[0]+','+nextNode[1]);
+      current = nextNode;
+      if (current[0]===goal[0] && current[1]===goal[1]) {
+          // Reconstruct path isn't strictly needed for manual, but let's just show a path
+          yield {current, explored, frontier: [], path: [start, current], done: true, found: true};
+          return;
+      }
+    }
+  }
+}
+
+const ALGO_MAP = { bfs: bfsSearch, dfs: dfsSearch, astar: astarSearch, greedy: greedySearch, manual: manualSearch };
 
 // ===== AGENT =====
 class Agent {
@@ -581,6 +670,7 @@ class Agent {
   reset() {
     this.explored = new Set(); this.frontier = [];
     this.path = []; this.current = null;
+    this.lerpPos = null; // For smooth movement
     this.status = 'idle'; this.nodesExplored = 0;
     this.pathLength = 0; this.timeTaken = -1;
     this.timeStart = 0; this.gen = null;
@@ -593,12 +683,26 @@ class Agent {
     this.timeStart = performance.now();
   }
   step() {
+    if (this.algo === 'manual') return false; // Handled via clicks
     if (!this.gen || this.status !== 'searching') return true;
     const r = this.gen.next();
     if (r.done) { this.status = 'failed'; this.timeTaken = performance.now()-this.timeStart; return true; }
     const s = r.value;
+    
+    // Add particles on new exploration
+    if (s.current && !this.explored.has(s.current[0]+','+s.current[1])) {
+       createExplosion(s.current[1]*cellW + cellW/2, s.current[0]*cellH + cellH/2, this.color);
+    }
+
     this.explored = s.explored; this.frontier = s.frontier;
-    this.current = s.current; this.nodesExplored = s.explored.size;
+    this.current = s.current;
+    
+    // Set lerp target
+    if (this.current) {
+        if (!this.lerpPos) this.lerpPos = {x: this.current[1]*cellW, y: this.current[0]*cellH};
+    }
+
+    this.nodesExplored = s.explored.size;
     if (s.done) {
       this.timeTaken = performance.now() - this.timeStart;
       if (s.found) { this.path = s.path; this.pathLength = s.path.length-1; this.status = 'found'; }
@@ -606,6 +710,28 @@ class Agent {
       return true;
     }
     return false;
+  }
+}
+
+// ===== PARTICLES =====
+function createExplosion(x, y, color) {
+  for (let i = 0; i < 8; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 4,
+      vy: (Math.random() - 0.5) * 4,
+      life: 1.0,
+      color
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.life -= 0.02;
+    if (p.life <= 0) particles.splice(i, 1);
   }
 }
 
@@ -624,15 +750,121 @@ function hexToRgb(hex) {
   return [r,g,b];
 }
 
+function drawCompass(ctx, x, y, size) {
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.arc(x+2, y+2, size*1.1, 0, Math.PI*2);
+  ctx.fill();
+
+  // Outer casing
+  ctx.fillStyle = '#D4AF37';
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI*2);
+  ctx.fill();
+  
+  // Inner face
+  ctx.fillStyle = '#FFF8DC';
+  ctx.beginPath();
+  ctx.arc(x, y, size*0.8, 0, Math.PI*2);
+  ctx.fill();
+
+  // Needle
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Date.now() / 1000);
+  
+  ctx.fillStyle = '#E53935';
+  ctx.beginPath();
+  ctx.moveTo(0, -size*0.7);
+  ctx.lineTo(size*0.2, 0);
+  ctx.lineTo(-size*0.2, 0);
+  ctx.fill();
+
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.moveTo(0, size*0.7);
+  ctx.lineTo(size*0.2, 0);
+  ctx.lineTo(-size*0.2, 0);
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+function drawChest(ctx, x, y, size) {
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(x-size*0.9, y-size*0.5+4, size*1.8, size*1.4);
+
+  // Body
+  ctx.fillStyle = '#5D4037';
+  ctx.fillRect(x-size*0.8, y-size*0.4, size*1.6, size*1.2);
+  
+  // Lid
+  ctx.fillStyle = '#8D6E63';
+  ctx.beginPath();
+  ctx.ellipse(x, y-size*0.4, size*0.8, size*0.4, 0, Math.PI, 0);
+  ctx.fill();
+  
+  // Bands
+  ctx.fillStyle = '#D4AF37';
+  ctx.fillRect(x-size*0.6, y-size*0.8, size*0.2, size*1.6);
+  ctx.fillRect(x+size*0.4, y-size*0.8, size*0.2, size*1.6);
+  
+  // Lock
+  ctx.fillStyle = '#D4AF37';
+  ctx.beginPath();
+  ctx.arc(x, y, size*0.2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.arc(x, y, size*0.1, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawTotem(ctx, x, y, size, color) {
+  // Glow
+  const grad = ctx.createRadialGradient(x, y, 0, x, y, size*2.5);
+  grad.addColorStop(0, color + '66');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x, y, size*2.5, 0, Math.PI*2);
+  ctx.fill();
+
+  // Base
+  ctx.fillStyle = '#2F2F2F';
+  ctx.fillRect(x-size*0.6, y, size*1.2, size);
+  
+  // Gem
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y-size);
+  ctx.lineTo(x+size*0.6, y);
+  ctx.lineTo(x, y+size);
+  ctx.lineTo(x-size*0.6, y);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.beginPath();
+  ctx.moveTo(x, y-size);
+  ctx.lineTo(x+size*0.3, y);
+  ctx.lineTo(x, y+size*0.2);
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawMaze() {
   if (!grid || !ctx) return;
   const gap = 1;
 
-  // Background
+  // Background (Sand)
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Open cells
+  // Sea Water (Open cells)
   ctx.fillStyle = COLORS.open;
   for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
     if (!grid.isWall(r,c)) {
@@ -640,7 +872,7 @@ function drawMaze() {
     }
   }
 
-  // Explored cells (35% opacity solid fill)
+  // Explored paths
   for (const agent of agents) {
     if (!agent.active || !agent.explored.size) continue;
     const [cr,cg,cb] = hexToRgb(agent.color);
@@ -651,47 +883,65 @@ function drawMaze() {
     }
   }
 
-  // Final paths (full opacity)
-  for (const agent of agents) {
-    if (!agent.active || agent.status !== 'found' || !agent.path.length) continue;
-    ctx.fillStyle = agent.color;
-    for (const [r,c] of agent.path) {
-      ctx.fillRect(c*cellW+gap, r*cellH+gap, cellW-gap*2, cellH-gap*2);
-    }
-  }
-
-  // Walls
-  ctx.fillStyle = COLORS.wall;
+  // Walls (Obsidian / Dark Rock)
   for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
     if (grid.isWall(r,c)) {
-      ctx.fillRect(c*cellW+gap, r*cellH+gap, cellW-gap*2, cellH-gap*2);
+      const x = c*cellW, y = r*cellH;
+      // Base
+      ctx.fillStyle = '#111';
+      ctx.fillRect(x, y, cellW, cellH);
+      
+      // Top Surface
+      ctx.fillStyle = '#222';
+      ctx.fillRect(x+2, y+2, cellW-4, cellH-4);
+      
+      // Highlights
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x+3, y+3, cellW-6, cellH-6);
+      
+      // Small "Energy" glow for the maze walls
+      ctx.fillStyle = 'rgba(33, 150, 243, 0.03)';
+      ctx.beginPath();
+      ctx.arc(x+cellW/2, y+cellH/2, cellW/4, 0, Math.PI*2);
+      ctx.fill();
     }
   }
 
-  // Start marker
+  // Start (Compass)
   const [sr,sc] = grid.start;
-  const ss = Math.floor(Math.min(cellW,cellH)/3);
-  ctx.fillStyle = COLORS.start;
-  ctx.fillRect(sc*cellW+cellW/2-ss, sr*cellH+cellH/2-ss, ss*2, ss*2);
+  drawCompass(ctx, sc*cellW + cellW/2, sr*cellH + cellH/2, cellW*0.4);
 
-  // Treasure marker (diamond)
+  // Treasure (Wooden Chest)
   const [tr,tc] = grid.treasure;
-  const ts = Math.floor(Math.min(cellW,cellH)/3);
-  const tcx = tc*cellW+cellW/2, tcy = tr*cellH+cellH/2;
-  ctx.fillStyle = COLORS.treasure;
-  ctx.beginPath();
-  ctx.moveTo(tcx, tcy-ts); ctx.lineTo(tcx+ts, tcy);
-  ctx.lineTo(tcx, tcy+ts); ctx.lineTo(tcx-ts, tcy);
-  ctx.closePath(); ctx.fill();
+  drawChest(ctx, tc*cellW + cellW/2, tr*cellH + cellH/2, cellW*0.4);
 
-  // Current node highlights
+  // Agents (Glow Totems)
   for (const agent of agents) {
-    if (!agent.active || agent.status !== 'searching' || !agent.current) continue;
-    const [cr,cg,cb] = hexToRgb(agent.color);
-    ctx.fillStyle = `rgba(${cr},${cg},${cb},0.7)`;
-    const [r,c] = agent.current;
-    ctx.fillRect(c*cellW+gap, r*cellH+gap, cellW-gap*2, cellH-gap*2);
+    if (!agent.active || agent.status === 'idle') continue;
+    
+    // Smooth movement
+    if (agent.current) {
+        let tx = agent.current[1] * cellW;
+        let ty = agent.current[0] * cellH;
+        if (!agent.lerpPos) agent.lerpPos = {x: tx, y: ty};
+        agent.lerpPos.x += (tx - agent.lerpPos.x) * 0.15;
+        agent.lerpPos.y += (ty - agent.lerpPos.y) * 0.15;
+        
+        drawTotem(ctx, agent.lerpPos.x + cellW/2, agent.lerpPos.y + cellW/2, cellW/3, agent.color);
+    }
   }
+
+  // Particles
+  ctx.globalAlpha = 1.0;
+  for (const p of particles) {
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.life;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1.0;
 }
 
 function updateCards() {
@@ -719,6 +969,8 @@ function updateCards() {
 // ===== GAME LOOP =====
 function gameLoop() {
   if (!running) return;
+
+  updateParticles();
 
   if (!paused && !allDone) {
     const steps = SPEEDS[speedIdx];
@@ -763,8 +1015,48 @@ function showScreen(name) {
   document.getElementById('bottom-bar').style.display = name==='game'?'flex':'none';
 
   if (name === 'select') buildSelectScreen();
-  if (name === 'game') { running = true; resizeCanvas(); gameLoop(); }
+  if (name === 'game') { 
+    running = true; resizeCanvas(); 
+    setupCanvasClick();
+    gameLoop(); 
+  }
   if (name === 'results') buildResultsScreen();
+}
+
+function setupCanvasClick() {
+  canvas.onclick = (e) => {
+    if (paused || allDone) return;
+    const player = agents.find(a => a.algo === 'manual');
+    if (!player || player.status !== 'searching') return;
+    
+    // Correct for canvas position
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const c = Math.floor(x / cellW);
+    const r = Math.floor(y / cellH);
+    
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+    
+    // Check if it's a neighbor of any explored node
+    const isNeighbor = Array.from(player.explored).some(k => {
+        const [er, ec] = k.split(',').map(Number);
+        return Math.abs(er - r) + Math.abs(ec - c) === 1;
+    });
+    
+    if (isNeighbor && !grid.isWall(r, c) && !player.explored.has(r+','+c)) {
+        player.gen.next([r, c]);
+        player.explored.add(r+','+c);
+        player.current = [r, c];
+        player.nodesExplored = player.explored.size;
+        createExplosion(c*cellW+cellW/2, r*cellH+cellH/2, player.color);
+        
+        if (r === grid.treasure[0] && c === grid.treasure[1]) {
+            player.status = 'found';
+            player.timeTaken = performance.now() - player.timeStart;
+        }
+    }
+  };
 }
 
 function buildSelectScreen() {
@@ -796,15 +1088,17 @@ function buildSelectScreen() {
   // Agent toggles
   const toggleRow = document.getElementById('toggle-row');
   toggleRow.innerHTML = '';
-  for (let i=0;i<4;i++) {
+  AGENTS_CFG.forEach((cfg, i) => {
     const btn = document.createElement('button');
-    btn.className = 'toggle-btn' + (activeAgents[i]?' active':'');
-    btn.style.color = AGENTS_CFG[i].color;
-    btn.style.borderColor = activeAgents[i] ? AGENTS_CFG[i].color : 'var(--border)';
-    btn.textContent = AGENTS_CFG[i].name;
-    btn.onclick = () => { activeAgents[i] = !activeAgents[i]; buildSelectScreen(); };
+    btn.className = 'toggle-btn' + (activeAgents[i] ? ' active' : '');
+    btn.style.color = cfg.color;
+    btn.textContent = cfg.name;
+    btn.onclick = () => {
+      activeAgents[i] = !activeAgents[i];
+      buildSelectScreen();
+    };
     toggleRow.appendChild(btn);
-  }
+  });
 }
 
 function startGame() {
@@ -816,11 +1110,12 @@ function startGame() {
     return a;
   });
   for (const a of agents) if (a.active) a.startSearch(grid);
-  allDone = false; doneTimer = 0; paused = false;
+  allDone = false; doneTimer = 0; paused = true; // Stay paused until "Launch Race"
   canvas = document.getElementById('maze');
   ctx = canvas.getContext('2d');
   document.getElementById('speed-label').textContent = `Speed: ${SPEEDS[speedIdx]}x`;
-  document.getElementById('pause-btn').textContent = 'Pause';
+  document.getElementById('pause-btn').textContent = 'Launch Race!';
+  document.getElementById('pause-btn').style.background = 'var(--success)';
   showScreen('game');
 }
 
@@ -835,7 +1130,9 @@ function newMap() {
 
 function togglePause() {
   paused = !paused;
-  document.getElementById('pause-btn').textContent = paused ? 'Resume' : 'Pause';
+  const btn = document.getElementById('pause-btn');
+  btn.textContent = paused ? 'Resume Race' : 'Pause Race';
+  btn.style.background = paused ? 'var(--success)' : 'var(--failure)';
 }
 
 function changeSpeed(delta) {

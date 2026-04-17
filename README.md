@@ -39,10 +39,22 @@ pip install -r requirements.txt
 
 ## How to Run
 
+### Run the Desktop App (Pygame)
+
 ```bash
-# From the project root (ai_treasure_hunt/)
+# Double-click run.bat or execute:
 python main.py
 ```
+
+### Run the Web App (Flask - RECOMMENDED)
+
+The Web App features a premium **Cyber Maze** theme with glassmorphism and modern UI.
+
+```bash
+# Double-click run_web.bat or execute:
+python web/app.py
+```
+Then open [http://localhost:5000](http://localhost:5000) in your browser.
 
 ### Generate the Academic Poster
 
